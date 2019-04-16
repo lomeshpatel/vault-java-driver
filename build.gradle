@@ -62,11 +62,6 @@ configurations {
 }
 
 sourceSets {
-    unitTests {
-        compileClasspath += main.output + test.output
-        runtimeClasspath += main.output + test.output
-        java.srcDir file('src/test/java')
-    }
     integrationTests {
         compileClasspath += main.output + test.output
         runtimeClasspath += main.output + test.output
@@ -75,21 +70,21 @@ sourceSets {
     }
 }
 
-task unitTest(type: Test) {
-    testClassesDirs = sourceSets.unitTests.output.classesDirs
-    classpath = sourceSets.unitTests.runtimeClasspath
-    testLogging {
-        events "passed", "skipped", "failed"
-    }
+test.testLogging {
+    events "passed", "skipped", "failed"
 }
 
-task integrationTest(type: Test) {
+task integrationTest(type: Test, group: 'verification') {
     testClassesDirs= sourceSets.integrationTests.output.classesDirs
     classpath = sourceSets.integrationTests.runtimeClasspath
     testLogging {
         events "passed", "skipped", "failed"
     }
+
+    mustRunAfter test
 }
+
+check.dependsOn integrationTest
 
 //
 // Deploying releases to Maven Central (or snapshots to a local Nexus repository).
