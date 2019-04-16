@@ -1,4 +1,4 @@
-Vault Java Driver
+Vault Java Driver [![CircleCI](https://circleci.com/gh/lomeshpatel/vault-java-driver.svg?style=svg)](https://circleci.com/gh/lomeshpatel/vault-java-driver)
 =================
 A zero-dependency Java client for the [Vault](https://www.vaultproject.io/) secrets management solution from
 HashiCorp.
