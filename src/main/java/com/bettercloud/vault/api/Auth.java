@@ -10,8 +10,6 @@ import com.bettercloud.vault.response.LogicalResponse;
 import com.bettercloud.vault.response.LookupResponse;
 import com.bettercloud.vault.rest.Rest;
 import com.bettercloud.vault.rest.RestResponse;
-import lombok.Getter;
-
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -40,24 +38,20 @@ public class Auth {
      */
     public static class TokenRequest implements Serializable {
 
-        @Getter
         private UUID id;
-        @Getter
         private List<String> polices;
-        @Getter
         private Map<String, String> meta;
-        @Getter
         private Boolean noParent;
-        @Getter
         private Boolean noDefaultPolicy;
-        @Getter
         private String ttl;
-        @Getter
         private String displayName;
-        @Getter
         private Long numUses;
-        @Getter
         private String role;
+        private Boolean renewable;
+        private String type;
+        private String explicitMaxTtl;
+        private String period;
+        private String entityAlias;
 
         /**
          * @param id (optional) The ID of the client token. Can only be specified by a root token. Otherwise, the token ID is a randomly generated UUID.
@@ -138,6 +132,113 @@ public class Auth {
         public TokenRequest role(final String role) {
             this.role = role;
             return this;
+        }
+
+        /**
+         * @param renewable Set to false to disable the ability of the token to be renewed past its
+         * initial TTL. Setting the value to true will allow the token to be renewable up to
+         * the system/mount maximum TTL.
+         * @return This object, with its renewable field populated
+         */
+        public TokenRequest renewable(final Boolean renewable) {
+            this.renewable = renewable;
+            return this;
+        }
+
+        /**
+         *
+         * @param type The token type. Can be "batch" or "service".
+         * @return This object, with its type field populated
+         */
+        public TokenRequest type(final String type) {
+            this.type = type;
+            return this;
+        }
+
+        /**
+         *
+         * @param explicitMaxTtl If set, the token will have an explicit max TTL set upon it.
+         * @return This object, with its explicitMaxTtl field populated
+         */
+        public TokenRequest explicitMaxTtl(final String explicitMaxTtl) {
+            this.explicitMaxTtl = explicitMaxTtl;
+            return this;
+        }
+
+        /**
+         *
+         * @param period If specified, the token will be periodic
+         * @return This object, with its period field populated
+         */
+        public TokenRequest period(final String period) {
+            this.period = period;
+            return this;
+        }
+
+        /**
+         *
+         * @param entityAlias Name of the entity alias to associate with during token creation.
+         * @return This object, with its period field populated
+         */
+        public TokenRequest entityAlias(final String entityAlias) {
+            this.entityAlias = entityAlias;
+            return this;
+        }
+
+        public UUID getId() {
+            return id;
+        }
+
+        public List<String> getPolices() {
+            return polices;
+        }
+
+        public Map<String, String> getMeta() {
+            return meta;
+        }
+
+        public Boolean getNoParent() {
+            return noParent;
+        }
+
+        public Boolean getNoDefaultPolicy() {
+            return noDefaultPolicy;
+        }
+
+        public String getTtl() {
+            return ttl;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
+
+        public Long getNumUses() {
+            return numUses;
+        }
+
+        public String getRole() {
+            return role;
+        }
+
+        public Boolean getRenewable() {
+            return renewable;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public String getExplicitMaxTtl() {
+            return explicitMaxTtl;
+        }
+
+        public String getPeriod() {
+            return period;
+        }
+
+        public String getEntityAlias() {
+            return entityAlias;
         }
     }
 
@@ -224,9 +325,17 @@ public class Auth {
                 if (tokenRequest.ttl != null) jsonObject.add("ttl", tokenRequest.ttl);
                 if (tokenRequest.displayName != null) jsonObject.add("display_name", tokenRequest.displayName);
                 if (tokenRequest.numUses != null) jsonObject.add("num_uses", tokenRequest.numUses);
+                if (tokenRequest.renewable != null) jsonObject.add("renewable", tokenRequest.renewable);
+                if (tokenRequest.type != null) jsonObject.add("type", tokenRequest.type);
+                if (tokenRequest.explicitMaxTtl != null) jsonObject.add("explicit_max_ttl", tokenRequest.explicitMaxTtl);
+                if (tokenRequest.period != null) jsonObject.add("period", tokenRequest.period);
+                if (tokenRequest.entityAlias != null) jsonObject.add("entity_alias", tokenRequest.entityAlias);
                 final String requestJson = jsonObject.toString();
 
-                final StringBuilder urlBuilder = new StringBuilder(config.getAddress()).append("/v1/auth/" + mount + "/create");//NOPMD
+                final StringBuilder urlBuilder = new StringBuilder(config.getAddress())//NOPMD
+                        .append("/v1/auth/")
+                        .append(mount)
+                        .append("/create");
                 if (tokenRequest.role != null) {
                     urlBuilder.append("/").append(tokenRequest.role);
                 }
@@ -236,7 +345,7 @@ public class Auth {
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(url)
                         .header("X-Vault-Token", config.getToken())
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .body(requestJson.getBytes(StandardCharsets.UTF_8))
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
@@ -246,7 +355,9 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();
                 if (!mimeType.equals("application/json")) {
@@ -312,7 +423,9 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();
                 if (!mimeType.equals("application/json")) {
@@ -396,7 +509,7 @@ public class Auth {
                 final String requestJson = Json.object().add("role_id", roleId).add("secret_id", secretId).toString();
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(config.getAddress() + "/v1/auth/" + path + "/login")
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .body(requestJson.getBytes(StandardCharsets.UTF_8))
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
@@ -406,7 +519,9 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();
                 if (!mimeType.equals("application/json")) {
@@ -479,7 +594,7 @@ public class Auth {
                 final String requestJson = Json.object().add("password", password).toString();
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(config.getAddress() + "/v1/auth/" + mount + "/login/" + username)
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .body(requestJson.getBytes(StandardCharsets.UTF_8))
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
@@ -489,7 +604,9 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();
                 if (!mimeType.equals("application/json")) {
@@ -602,7 +719,7 @@ public class Auth {
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(config.getAddress() + "/v1/auth/" + mount + "/login")
                         .body(requestJson.getBytes(StandardCharsets.UTF_8))
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
                         .sslVerification(config.getSslConfig().isVerify())
@@ -611,7 +728,9 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();
                 if (!mimeType.equals("application/json")) {
@@ -677,7 +796,7 @@ public class Auth {
                 final String requestJson = request.toString();
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(config.getAddress() + "/v1/auth/" + mount + "/login")
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .body(requestJson.getBytes(StandardCharsets.UTF_8))
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
@@ -687,7 +806,9 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();
                 if (!mimeType.equals("application/json")) {
@@ -756,7 +877,7 @@ public class Auth {
                 final String requestJson = request.toString();
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(config.getAddress() + "/v1/auth/" + mount + "/login")
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .body(requestJson.getBytes(StandardCharsets.UTF_8))
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
@@ -766,7 +887,9 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();
                 if (!mimeType.equals("application/json")) {
@@ -841,7 +964,7 @@ public class Auth {
                 final String requestJson = Json.object().add("token", githubToken).toString();
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(config.getAddress() + "/v1/auth/" + mount + "/login")
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .body(requestJson.getBytes(StandardCharsets.UTF_8))
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
@@ -851,7 +974,9 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();
                 if (!mimeType.equals("application/json")) {
@@ -879,23 +1004,24 @@ public class Auth {
     }
 
     /**
-     * <p>Basic login operation to authenticate to an GCP backend.  Example usage:</p>
+     * <p>Basic login operation to authenticate to an JWT backend.  Example usage:</p>
      *
      * <blockquote>
      * <pre>{@code
-     * final AuthResponse response = vault.auth().loginByGCP("dev", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...");
+     * final AuthResponse response = vault.auth().loginByJwt("kubernetes", "dev", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...");
      *
      * final String token = response.getAuthClientToken();
      * }</pre>
      * </blockquote>
      *
+     * @param provider Provider of JWT token.
      * @param role The gcp role used for authentication
      * @param jwt  The JWT token for the role
      * @return The auth token, with additional response metadata
      * @throws VaultException If any error occurs, or unexpected response received from Vault
      */
     // TODO: Needs integration test coverage if possible
-    public AuthResponse loginByGCP(final String role, final String jwt) throws VaultException {
+    public AuthResponse loginByJwt(final String provider, final String role, final String jwt) throws VaultException {
         int retryCount = 0;
 
         while (true) {
@@ -903,8 +1029,8 @@ public class Auth {
                 // HTTP request to Vault
                 final String requestJson = Json.object().add("role", role).add("jwt", jwt).toString();
                 final RestResponse restResponse = new Rest()
-                        .url(config.getAddress() + "/v1/auth/gcp/login")
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .url(config.getAddress() + "/v1/auth/" + provider + "/login")
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .body(requestJson.getBytes(StandardCharsets.UTF_8))
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
@@ -914,7 +1040,9 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();
                 if (!mimeType.equals("application/json")) {
@@ -939,6 +1067,50 @@ public class Auth {
                 }
             }
         }
+    }
+
+
+    /**
+     * <p>Basic login operation to authenticate to an GCP backend.  Example usage:</p>
+     *
+     * <blockquote>
+     * <pre>{@code
+     * final AuthResponse response = vault.auth().loginByGCP("dev", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...");
+     *
+     * final String token = response.getAuthClientToken();
+     * }</pre>
+     * </blockquote>
+     *
+     * @param role The gcp role used for authentication
+     * @param jwt  The JWT token for the role
+     * @return The auth token, with additional response metadata
+     * @throws VaultException If any error occurs, or unexpected response received from Vault
+     */
+    public AuthResponse loginByGCP(final String role, final String jwt) throws VaultException {
+        return loginByJwt("gcp", role, jwt);
+    }
+
+
+    /**
+     * Basic login operation to authenticate to an kubernetes backend. Example usage:
+     *
+     * <blockquote>
+     *
+     * <pre>{@code
+     * final AuthResponse response =
+     *     vault.auth().loginByKubernetes("dev", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...");
+     *
+     * final String token = response.getAuthClientToken();
+     * }</pre>
+     * </blockquote>
+     *
+     * @param role The kubernetes role used for authentication
+     * @param jwt The JWT token for the role, typically read from /var/run/secrets/kubernetes.io/serviceaccount/token
+     * @return The auth token, with additional response metadata
+     * @throws VaultException If any error occurs, or unexpected response received from Vault
+     */
+    public AuthResponse loginByKubernetes(final String role, final String jwt) throws VaultException {
+        return loginByJwt("kubernetes", role, jwt);
     }
 
     /**
@@ -1000,7 +1172,7 @@ public class Auth {
             try {
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(config.getAddress() + "/v1/auth/" + mount + "/login")
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
                         .sslVerification(config.getSslConfig().isVerify())
@@ -1009,7 +1181,8 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(),
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
                             restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();
@@ -1082,7 +1255,7 @@ public class Auth {
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(config.getAddress() + "/v1/auth/" + mount + "/renew-self")
                         .header("X-Vault-Token", config.getToken())
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .body(increment < 0 ? null : requestJson.getBytes(StandardCharsets.UTF_8))
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
@@ -1092,7 +1265,9 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();
                 if (!mimeType.equals("application/json")) {
@@ -1145,7 +1320,7 @@ public class Auth {
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(config.getAddress() + "/v1/auth/" + mount + "/lookup-self")
                         .header("X-Vault-Token", config.getToken())
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
                         .sslVerification(config.getSslConfig().isVerify())
@@ -1154,10 +1329,12 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType();
-                if (mimeType == null || !"application/json".equals(mimeType)) {
+                if (!"application/json".equals(mimeType)) {
                     throw new VaultException("Vault responded with MIME type: " + mimeType, restResponse.getStatus());
                 }
                 return new LookupResponse(restResponse, retryCount);
@@ -1207,7 +1384,7 @@ public class Auth {
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(config.getAddress() + "/v1/sys/wrapping/lookup")
                         .header("X-Vault-Token", config.getToken())
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
                         .sslVerification(config.getSslConfig().isVerify())
@@ -1220,7 +1397,7 @@ public class Auth {
                             restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType();
-                if (mimeType == null || !"application/json".equals(mimeType)) {
+                if (!"application/json".equals(mimeType)) {
                     throw new VaultException("Vault responded with MIME type: " + mimeType, restResponse.getStatus());
                 }
                 return new LogicalResponse(restResponse, retryCount, Logical.logicalOperations.authentication);
@@ -1269,7 +1446,7 @@ public class Auth {
                 final RestResponse restResponse = new Rest()//NOPMD
                         .url(config.getAddress() + "/v1/auth/" + mount + "/revoke-self")
                         .header("X-Vault-Token", config.getToken())
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
                         .sslVerification(config.getSslConfig().isVerify())
@@ -1278,7 +1455,9 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 204) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(), restResponse.getStatus());
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
+                            restResponse.getStatus());
                 }
                 return;
             } catch (Exception e) {
@@ -1370,7 +1549,7 @@ public class Auth {
                 final RestResponse restResponse = new Rest()
                         .url(url)
                         .header("X-Vault-Token", config.getToken())
-                        .optionalHeader("X-Vault-Namespace", this.nameSpace)
+                        .header("X-Vault-Namespace", this.nameSpace)
                         .body(requestJson.getBytes(StandardCharsets.UTF_8))
                         .connectTimeoutSeconds(config.getOpenTimeout())
                         .readTimeoutSeconds(config.getReadTimeout())
@@ -1380,7 +1559,8 @@ public class Auth {
 
                 // Validate restResponse
                 if (restResponse.getStatus() != 200) {
-                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus(),
+                    throw new VaultException("Vault responded with HTTP status code: " + restResponse.getStatus()
+                            + "\nResponse body: " + new String(restResponse.getBody(), StandardCharsets.UTF_8),
                             restResponse.getStatus());
                 }
                 final String mimeType = restResponse.getMimeType() == null ? "null" : restResponse.getMimeType();

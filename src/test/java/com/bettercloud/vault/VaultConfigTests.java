@@ -1,8 +1,5 @@
 package com.bettercloud.vault;
 
-import org.junit.Assert;
-import org.junit.Test;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -14,8 +11,9 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.Assert;
+import org.junit.Test;
 
-import static junit.framework.Assert.assertSame;
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
 
@@ -97,6 +95,18 @@ public class VaultConfigTests {
     }
 
     /**
+     * Test creating a new <code>VaultConfig</code> via its constructor, ensuring that addresses are normalized to
+     * not have a trailing slash.
+     *
+     * @throws VaultException
+     */
+    @Test
+    public void testConfigConstructor_NormalizesAddress() throws VaultException {
+        final VaultConfig config = new VaultConfig().address("https://localhost:8200/").build();
+        assertEquals("https://localhost:8200", config.getAddress());
+    }
+
+    /**
      * Test creating a new <code>VaultConfig</code> via its constructor, passing null address and token values AND
      * having them unavailable in the environment variables too.  This should cause initialization failure.
      *
@@ -116,6 +126,7 @@ public class VaultConfigTests {
     @Test
     public void testConfigBuilder() throws VaultException {
         Map<String, String> testMap = new HashMap<>();
+        testMap.put("foo", "bar");
         final VaultConfig config =
                 new VaultConfig()
                         .address("address")
@@ -126,7 +137,7 @@ public class VaultConfigTests {
         assertEquals("address", config.getAddress());
         assertEquals("token", config.getToken());
         assertEquals("1", config.getGlobalEngineVersion().toString());
-        assertSame(testMap, config.getSecretsEnginePathMap());
+        assertEquals("bar", config.getSecretsEnginePathMap().get("foo"));
     }
 
     /**
@@ -205,6 +216,7 @@ public class VaultConfigTests {
         new VaultConfig().build();
     }
 
+    @SuppressWarnings("CharsetObjectCanBeUsed") // Requires Java 10 and above
     @Test
     public void testConfigBuilder_LoadTokenFromHomedir() throws IOException, VaultException {
         final String mockHomeDirectory = System.getProperty("java.io.tmpdir") + File.separatorChar + UUID.randomUUID().toString();
@@ -243,5 +255,4 @@ public class VaultConfigTests {
         VaultConfig vaultConfig = new VaultConfig().nameSpace("namespace").address("address").build();
         Assert.assertEquals(vaultConfig.getNameSpace(), "namespace");
     }
-
 }
